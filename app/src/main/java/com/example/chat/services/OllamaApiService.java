@@ -1,0 +1,24 @@
+package com.example.chat.services;
+
+import com.example.chat.beans.ModelsResponse;
+import com.example.chat.beans.OllamaRequest;
+import com.example.chat.beans.OllamaResponse;
+
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.http.Body;
+import retrofit2.http.GET;
+import retrofit2.http.POST;
+import retrofit2.http.Streaming;
+
+public interface OllamaApiService {
+    @GET("api/tags")
+    Call<ModelsResponse> getModels();
+
+    @POST("api/generate")
+    Call<OllamaResponse> generateResponse(@Body OllamaRequest request);
+
+    @Streaming
+    @POST("api/generate")
+    Call<ResponseBody> generateResponseStream(@Body OllamaRequest request);
+}
