@@ -5,11 +5,73 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
+    <!-- 思考区域 -->
+    <LinearLayout
+        android:id="@+id/think_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@android:color/transparent"
+        android:padding="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="思考过程"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/toggle_think_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="隐藏" />
+        </LinearLayout>
+
+        <ScrollView
+            android:id="@+id/think_scroll_view"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:background="@android:color/transparent">
+
+            <TextView
+                android:id="@+id/think_display"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#888888"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="2dp" />
+
+        </ScrollView>
+    </LinearLayout>
+
+    <!-- 分隔线 -->
+    <View
+        android:id="@+id/divider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="#EEEEEE"
+        app:layout_constraintTop_toBottomOf="@id/think_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 聊天区域 -->
     <ScrollView
         android:id="@+id/scroll_view"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/divider"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/bottom_bar">
@@ -18,9 +80,12 @@
             android:id="@+id/chat_display"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:lineSpacingExtra="4dp" />
+
     </ScrollView>
 
+    <!-- 输入区域 -->
     <LinearLayout
         android:id="@+id/bottom_bar"
         android:layout_width="0dp"
@@ -37,19 +102,24 @@
             android:layout_weight="1"
             android:hint="输入消息..."
             android:imeOptions="actionSend"
-            android:inputType="text" />
-
-        <Button
-            android:id="@+id/send_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="发送" />
+            android:inputType="text"
+            android:maxLines="3"
+            android:minHeight="48dp" />
 
         <Button
             android:id="@+id/speak_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="朗读" />
+            android:text="朗读"
+            android:layout_marginStart="8dp" />
+
+        <Button
+            android:id="@+id/send_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="发送"
+            android:layout_marginStart="8dp" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
