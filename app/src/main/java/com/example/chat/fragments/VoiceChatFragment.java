@@ -173,14 +173,37 @@ public class VoiceChatFragment extends Fragment implements TextToSpeech.OnInitLi
         Retrofit retrofit = RetrofitClient.getClient();
         OllamaApiService service = retrofit.create(OllamaApiService.class);
 
+        // 获取模型默认参数
+        com.example.chat.beans.ModelDetails modelDetails = ModelManager.getModelDetails();
+
+        // 确定使用默认参数还是自定义参数
+        String systemPrompt = ModelManager.getSystemPrompt();
+        float temperature = ModelManager.getTemperature();
+        float topP = ModelManager.getTopP();
+        int maxTokens = ModelManager.getMaxTokens();
+
+        // 检查是否使用了自定义参数（与默认值不同）
+        boolean useCustomParams = false;
+        if (modelDetails != null) {
+            useCustomParams =
+                    !systemPrompt.equals(modelDetails.getSystemPrompt()) ||
+                            temperature != modelDetails.getTemperature() ||
+                            topP != modelDetails.getTopP() ||
+                            maxTokens != modelDetails.getNumPredict();
+        }
+
+        // 如果没有自定义参数，使用空字符串作为系统提示词（让模型使用自己的默认提示词）
+        // 如果有自定义参数，使用用户设置的系统提示词
+        String finalSystemPrompt = useCustomParams ? systemPrompt : "";
+
         OllamaRequest request = new OllamaRequest(
                 ModelManager.getSelectedModelOrDefault(),
                 message,
-                "",
-                true,
-                0.7,
-                0.9,
-                0
+                finalSystemPrompt, // 使用确定的系统提示词
+                true,   // 开启流式
+                temperature, // 使用确定的温度值
+                topP,       // 使用确定的top_p值
+                maxTokens   // 使用确定的最大token数
         );
 
         Call<okhttp3.ResponseBody> call = service.generateResponseStream(request);
@@ -332,4 +355,4 @@ public class VoiceChatFragment extends Fragment implements TextToSpeech.OnInitLi
             }
         });
     }
-}
+} ,3X
