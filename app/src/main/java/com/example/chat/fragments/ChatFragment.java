@@ -11,19 +11,16 @@ import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 
+import com.example.chat.MainActivity;
 import com.example.chat.ModelManager;
 import com.example.chat.services.OllamaApiService;
 import com.example.chat.beans.OllamaRequest;
 import com.example.chat.R;
-import com.example.chat.RetrofitClient;
+import com.example.chat.retrofitclient.ChatRetrofitClient;
 
 import org.json.JSONObject;
 import android.util.Log;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
-import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -44,6 +41,11 @@ public class ChatFragment extends Fragment {
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_chat, container, false);
 
+        MainActivity activity = (MainActivity) getActivity();
+        if (activity != null) {
+            long userId = activity.getUserId();
+            String username = activity.getUsername();
+        }
         messageInput = view.findViewById(R.id.message_input);
         sendButton = view.findViewById(R.id.send_button);
         chatDisplay = view.findViewById(R.id.chat_display);
@@ -105,7 +107,7 @@ public class ChatFragment extends Fragment {
     }
 
     private void sendMessageToOllama(String message) {
-        Retrofit retrofit = RetrofitClient.getClient();
+        Retrofit retrofit = ChatRetrofitClient.getClient();
         OllamaApiService service = retrofit.create(OllamaApiService.class);
 
         // 获取模型默认参数

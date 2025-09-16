@@ -2,7 +2,6 @@ package com.example.chat.fragments;
 
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,17 +21,23 @@ import com.example.chat.R;
 
 import com.example.chat.beans.ModelDetails;
 import org.json.JSONObject;
-import org.json.JSONArray;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import com.example.chat.retrofitclient.ChatRetrofitClient;
+import com.example.chat.beans.ModelInfo;
+import com.example.chat.beans.ModelsResponse;
+import com.example.chat.beans.ShowModelRequest;
+import com.example.chat.services.OllamaApiService;
+
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class ModelSelectionFragment extends Fragment {
+    private OllamaApiService ollamaApiService;
 
     private Spinner modelSpinner;
     private Button refreshButton;
@@ -55,6 +60,8 @@ public class ModelSelectionFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_model_selection, container, false);
+
+        ollamaApiService = ChatRetrofitClient.getClient().create(OllamaApiService.class);
 
         // 获取布局中的组件
         modelSpinner = view.findViewById(R.id.model_spinner);
@@ -247,49 +254,19 @@ public class ModelSelectionFragment extends Fragment {
     }
 
     private void fetchModels() {
-        new FetchModelsTask().execute();
-    }
-
-    private void fetchModelDetails(String modelName) {
-        new FetchModelDetailsTask().execute(modelName);
-    }
-
-    private class FetchModelsTask extends AsyncTask<Void, Void, String> {
-        @Override
-        protected String doInBackground(Void... voids) {
-            try {
-                URL url = new URL("http://192.168.195.15:11434/api/tags");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-                reader.close();
-
-                return response.toString();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            if (result != null) {
-                try {
-                    JSONObject jsonResponse = new JSONObject(result);
-                    JSONArray modelsArray = jsonResponse.getJSONArray("models");
+        Call<ModelsResponse> call = ollamaApiService.getModels();
+        call.enqueue(new Callback<ModelsResponse>() {
+            @Override
+            public void onResponse(Call<ModelsResponse> call, Response<ModelsResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    ModelsResponse modelsResponse = response.body();
                     models.clear();
 
-                    for (int i = 0; i < modelsArray.length(); i++) {
-                        JSONObject model = modelsArray.getJSONObject(i);
-                        models.add(model.getString("name"));
+                    for (ModelInfo model : modelsResponse.getModels()) {
+                        models.add(model.getName());
                     }
 
+                    // 更新 UI
                     ArrayAdapter<String> adapter = new ArrayAdapter<>(
                             requireContext(),
                             android.R.layout.simple_spinner_item,
@@ -298,72 +275,58 @@ public class ModelSelectionFragment extends Fragment {
                     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                     modelSpinner.setAdapter(adapter);
 
-                    // 选择第一个可用模型，并保存到全局
                     if (!models.isEmpty()) {
                         modelSpinner.setSelection(0);
                         String firstModel = models.get(0);
                         ModelManager.setSelectedModel(firstModel);
-                        // 获取第一个模型的详细信息
                         fetchModelDetails(firstModel);
-                        settingsButton.setEnabled(true); // 启用设置按钮
+                        settingsButton.setEnabled(true);
                     }
 
                     Toast.makeText(requireContext(), "模型加载成功", Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(requireContext(), "解析模型数据失败", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(requireContext(), "获取模型失败", Toast.LENGTH_SHORT).show();
                 }
-            } else {
-                Toast.makeText(requireContext(), "获取模型失败", Toast.LENGTH_SHORT).show();
             }
-        }
+
+            @Override
+            public void onFailure(Call<ModelsResponse> call, Throwable t) {
+                Toast.makeText(requireContext(), "网络错误: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
-    private class FetchModelDetailsTask extends AsyncTask<String, Void, ModelDetails> {
-        @Override
-        protected ModelDetails doInBackground(String... params) {
-            String modelName = params[0];
-            try {
-                URL url = new URL("http://192.168.195.15:11434/api/show");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json; utf-8");
-                conn.setDoOutput(true);
+    // 修改 fetchModelDetails 方法
+    private void fetchModelDetails(String modelName) {
+        ShowModelRequest request = new ShowModelRequest(modelName);
+        Call<ResponseBody> call = ollamaApiService.getModelDetails(request);
 
-                // 构建请求体
-                String jsonInputString = "{\"name\": \"" + modelName + "\"}";
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        String responseString = response.body().string();
+                        JSONObject jsonResponse = new JSONObject(responseString);
+                        ModelDetails modelDetails = ModelDetails.fromJson(jsonResponse);
 
-                try (OutputStream os = conn.getOutputStream()) {
-                    byte[] input = jsonInputString.getBytes("utf-8");
-                    os.write(input, 0, input.length);
+                        ModelManager.setModelDetails(modelDetails);
+                        updateSettingsFromModelDefaults(modelDetails);
+                        Toast.makeText(requireContext(), "已加载 " + ModelManager.getSelectedModelOrDefault() + " 的默认设置", Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Toast.makeText(requireContext(), "解析模型详情失败", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(requireContext(), "获取模型详情失败", Toast.LENGTH_SHORT).show();
                 }
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-                reader.close();
-
-                JSONObject jsonResponse = new JSONObject(response.toString());
-                return ModelDetails.fromJson(jsonResponse);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
             }
-        }
 
-        @Override
-        protected void onPostExecute(ModelDetails modelDetails) {
-            if (modelDetails != null) {
-                ModelManager.setModelDetails(modelDetails);
-                // 更新设置以反映新模型的默认值
-                updateSettingsFromModelDefaults(modelDetails);
-                Toast.makeText(requireContext(), "已加载 " + ModelManager.getSelectedModelOrDefault() + " 的默认设置", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(requireContext(), "获取模型详情失败", Toast.LENGTH_SHORT).show();
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                Toast.makeText(requireContext(), "网络错误: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
-        }
+        });
     }
+
 }

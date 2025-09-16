@@ -47,6 +47,6 @@ dependencies {
     implementation ("com.github.bumptech.glide:glide:4.16.0")
     implementation ("androidx.core:core-ktx:1.10.1")
 
-    // OkHttp core（已移除 logging-interceptor）
+    implementation ("mysql:mysql-connector-java:8.0.33")
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
 }

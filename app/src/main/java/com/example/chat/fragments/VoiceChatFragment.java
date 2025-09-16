@@ -16,15 +16,12 @@ import com.example.chat.ModelManager;
 import com.example.chat.services.OllamaApiService;
 import com.example.chat.beans.OllamaRequest;
 import com.example.chat.R;
-import com.example.chat.RetrofitClient;
+import com.example.chat.retrofitclient.ChatRetrofitClient;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.Locale;
 
-import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -170,7 +167,7 @@ public class VoiceChatFragment extends Fragment implements TextToSpeech.OnInitLi
     }
 
     private void sendMessageToOllama(String message) {
-        Retrofit retrofit = RetrofitClient.getClient();
+        Retrofit retrofit = ChatRetrofitClient.getClient();
         OllamaApiService service = retrofit.create(OllamaApiService.class);
 
         // 获取模型默认参数

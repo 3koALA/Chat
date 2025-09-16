@@ -1,12 +1,13 @@
-package com.example.chat;
+package com.example.chat.retrofitclient;
+
+import com.example.chat.BaseUrl;
 
 import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import java.util.concurrent.TimeUnit;
 
-public class RetrofitClient {
-    private static final String BASE_URL = "http://192.168.195.15:11434/";
+public class ChatRetrofitClient {
     private static Retrofit retrofit = null;
 
     public static Retrofit getClient() {
@@ -21,9 +22,8 @@ public class RetrofitClient {
             // 删除日志拦截器以避免依赖和符号解析问题
 
             retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
+                    .baseUrl(BaseUrl.CHAT)
                     .addConverterFactory(GsonConverterFactory.create())
-                    .client(httpClient.build())
                     .build();
         }
         return retrofit;
