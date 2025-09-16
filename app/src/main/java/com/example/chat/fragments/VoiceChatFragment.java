@@ -355,4 +355,4 @@ public class VoiceChatFragment extends Fragment implements TextToSpeech.OnInitLi
             }
         });
     }
-} ,3X
+}
