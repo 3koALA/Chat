@@ -10,7 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.chat.beans.User;
-import com.example.chat.retrofitclient.DatabaseRetrofitClient;
+import com.example.chat.retrofitclient.BackendRetrofitClient;
 import com.example.chat.services.DatabaseApiService;
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -40,7 +40,7 @@ public class RegisterActivity extends AppCompatActivity {
         initViews();
 
         // 初始化数据库API服务
-        databaseApiService = DatabaseRetrofitClient.getClient().create(DatabaseApiService.class);
+        databaseApiService = BackendRetrofitClient.getClient().create(DatabaseApiService.class);
 
         // 设置点击监听器
         setupClickListeners();
