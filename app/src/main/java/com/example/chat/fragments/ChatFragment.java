@@ -21,6 +21,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.chat.MainActivity;
 import com.example.chat.ModelManager;
+import com.example.chat.beans.OllamaChatRequest;
+import com.example.chat.beans.OllamaMessage;
 import com.example.chat.services.OllamaApiService;
 import com.example.chat.beans.OllamaRequest;
 import com.example.chat.R;
@@ -29,10 +31,13 @@ import com.example.chat.retrofitclient.BackendRetrofitClient;
 import com.example.chat.services.ChatApiService;
 import com.example.chat.beans.Conversation;
 import com.example.chat.beans.Message;
+import com.google.gson.Gson;
 
 import org.json.JSONObject;
 import android.util.Log;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -40,6 +45,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -69,6 +75,7 @@ public class ChatFragment extends Fragment {
     private ChatApiService chatApiService;
     private ConversationAdapter conversationAdapter;
     private List<Conversation> conversations = new ArrayList<>();
+    private final List<Message> currentConversationMessages = new ArrayList<>();
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -395,6 +402,10 @@ public class ChatFragment extends Fragment {
                         String sender = message.getIsUser() ? "用户" : "AI";
                         appendMessage(sender, message.getContent());
                     }
+
+                    // 将历史消息存入全局存储
+                    currentConversationMessages.clear();
+                    currentConversationMessages.addAll(response.body());
                 }
             }
 
@@ -407,27 +418,20 @@ public class ChatFragment extends Fragment {
 
     // 保存消息到后端
     private void saveMessageToBackend(String content, Boolean isUser) {
-        Log.d("ChatFragment", "保存消息到后端: " + content + ", isUser=" + isUser + ", conversationId=" + currentConversationId);
         if (currentConversationId == null) {
             Log.e("ChatFragment", "无法保存消息：当前会话ID为空");
             return;
         }
+
         Message message = new Message(currentConversationId, content, isUser);
         chatApiService.addMessage(message).enqueue(new Callback<Message>() {
             @Override
             public void onResponse(Call<Message> call, Response<Message> response) {
-                if (response.isSuccessful()) {
-                    Log.d("ChatFragment", "消息保存成功: " + response.body());
+                if (response.isSuccessful() && response.body() != null) {
+                    // 更新本地消息列表
+                    currentConversationMessages.add(response.body());
                 } else {
-                    Log.e("ChatFragment", "保存消息失败: " + response.code() + ", " + response.message());
-                    try {
-                        if (response.errorBody() != null) {
-                            String errorBody = response.errorBody().string();
-                            Log.e("ChatFragment", "错误响应体: " + errorBody);
-                        }
-                    } catch (Exception e) {
-                        Log.e("ChatFragment", "解析错误响应体失败: " + e.getMessage());
-                    }
+                    Log.e("ChatFragment", "保存消息失败: " + response.code());
                 }
             }
 
@@ -459,7 +463,12 @@ public class ChatFragment extends Fragment {
 
     private void appendAiChunk(String chunk) {
         if (chunk == null || chunk.isEmpty()) return;
-        chatDisplay.append(chunk);
+
+        // 追加到现有内容
+        String currentContent = chatDisplay.getText().toString();
+        chatDisplay.setText(currentContent + chunk);
+
+        // 滚动到底部
         scrollView.post(() -> scrollView.fullScroll(View.FOCUS_DOWN));
     }
 
@@ -474,6 +483,9 @@ public class ChatFragment extends Fragment {
 
         // 获取模型默认参数
         com.example.chat.beans.ModelDetails modelDetails = ModelManager.getModelDetails();
+        // 构建完整对话历史
+        List<Message> fullHistory = new ArrayList<>(currentConversationMessages);
+        fullHistory.add(new Message(currentConversationId, message, true));
 
         // 确定使用默认参数还是自定义参数
         String systemPrompt = ModelManager.getSystemPrompt();
@@ -493,19 +505,31 @@ public class ChatFragment extends Fragment {
 
         // 如果没有自定义参数，使用空字符串作为系统提示词（让模型使用自己的默认提示词）
         // 如果有自定义参数，使用用户设置的系统提示词
+        List<OllamaMessage> messages = new ArrayList<>();
         String finalSystemPrompt = useCustomParams ? systemPrompt : "";
 
-        OllamaRequest request = new OllamaRequest(
-                ModelManager.getSelectedModelOrDefault(),
-                message,
-                finalSystemPrompt, // 使用确定的系统提示词
-                true,   // 开启流式
-                temperature, // 使用确定的温度值
-                topP,       // 使用确定的top_p值
-                maxTokens   // 使用确定的最大token数
-        );
+//        messages.add(new OllamaMessage("system", finalSystemPrompt)); //有关系统提示词的添加
 
-        Call<okhttp3.ResponseBody> call = service.generateResponseStream(request);
+        for (Message msg : fullHistory) {
+            String role = msg.getIsUser() ? "user" : "assistant";
+            messages.add(new OllamaMessage(role, msg.getContent()));
+        }
+
+        OllamaChatRequest request = new OllamaChatRequest();
+        request.setModel(ModelManager.getSelectedModelOrDefault());
+        request.setMessages(messages); // 关键：传递完整对话历史
+        request.setStream(true);
+//        request.setSystemPrompt(ModelManager.getSystemPrompt());
+        OllamaChatRequest.Options options = new OllamaChatRequest.Options(ModelManager.getTemperature(),ModelManager.getTopP(),ModelManager.getMaxTokens());
+        request.setOptions(options);
+
+
+        Gson gson = new Gson();
+        String requestJson = gson.toJson(request);
+        Log.d("ChatFragment", "Ollama Request: " + requestJson);
+        // 使用api/chat端点
+        Call<ResponseBody> call = service.generateChatResponseStream(request);
+
         startAiMessage();
 
         // 清空思考区域
@@ -531,8 +555,13 @@ public class ChatFragment extends Fragment {
                     postToUi(() -> endAiMessage());
                     return;
                 }
+
+
                 new Thread(() -> {
                     final String LOG_TAG = "ChatStream";
+                    final String THINK_START = "<think>";
+                    final String THINK_END = "</think>";
+
                     boolean inThink = false;
                     StringBuilder buffer = new StringBuilder();
                     StringBuilder pending = new StringBuilder();
@@ -555,72 +584,85 @@ public class ChatFragment extends Fragment {
                                     objStart = -1;
                                     try {
                                         JSONObject json = new JSONObject(jsonStr);
+                                        String chunk = null;
+
+                                        // 处理两种API响应格式
                                         if (json.has("response")) {
-                                            String chunk = json.getString("response");
-                                            if (chunk != null && !chunk.isEmpty()) {
-                                                aiResponse.append(chunk); // 累积AI回复
-                                                pending.append(chunk);
-                                                while (true) {
-                                                    if (inThink) {
-                                                        int end = indexOfSafe(pending, "</think>");
-                                                        if (end >= 0) {
-                                                            // 输出思考内容直到</think>
-                                                            final String thinkText = pending.substring(0, end);
-                                                            if (!thinkText.isEmpty()) {
-                                                                postToUi(() -> appendThinkChunk(thinkText));
-                                                            }
-                                                            pending.delete(0, end + "</think>".length());
-                                                            inThink = false;
-                                                            continue;
-                                                        } else {
-                                                            // 没有找到</think>，输出所有内容
-                                                            if (pending.length() > 0) {
-                                                                final String thinkText = pending.toString();
-                                                                postToUi(() -> appendThinkChunk(thinkText));
-                                                                pending.setLength(0);
-                                                            }
-                                                            break;
+                                            // /api/generate 格式
+                                            chunk = json.getString("response");
+                                        } else if (json.has("message")) {
+                                            // /api/chat 格式
+                                            JSONObject message = json.getJSONObject("message");
+                                            if (message.has("content")) {
+                                                chunk = message.getString("content");
+                                            }
+                                        }
+
+                                        if (chunk != null && !chunk.isEmpty()) {
+                                            aiResponse.append(chunk); // 累积AI回复
+                                            pending.append(chunk);
+                                            while (true) {
+                                                if (inThink) {
+                                                    int end = indexOfSafe(pending, THINK_END);
+                                                    if (end >= 0) {
+                                                        // 输出思考内容直到</think>
+                                                        final String thinkText = pending.substring(0, end);
+                                                        if (!thinkText.isEmpty()) {
+                                                            postToUi(() -> appendThinkChunk(thinkText));
                                                         }
-                                                    }
-
-                                                    int idxOpen = indexOfSafe(pending, "<think>");
-                                                    int idxClose = indexOfSafe(pending, "</think>");
-                                                    int next = minNonNeg(idxOpen, idxClose);
-
-                                                    if (next < 0) {
-                                                        // 没有找到任何标签，输出所有内容
+                                                        pending.delete(0, end + THINK_END.length());
+                                                        inThink = false;
+                                                        continue;
+                                                    } else {
+                                                        // 没有找到</think>，输出所有内容
                                                         if (pending.length() > 0) {
-                                                            final String toAppend = pending.toString();
-                                                            postToUi(() -> appendAiChunk(toAppend));
+                                                            final String thinkText = pending.toString();
+                                                            postToUi(() -> appendThinkChunk(thinkText));
                                                             pending.setLength(0);
                                                         }
                                                         break;
                                                     }
+                                                }
 
-                                                    if (next > 0) {
-                                                        // 输出标签前的内容
-                                                        String out = pending.substring(0, next);
-                                                        if (!out.isEmpty()) {
-                                                            final String toAppend = out;
-                                                            postToUi(() -> appendAiChunk(toAppend));
-                                                        }
-                                                        pending.delete(0, next);
-                                                    }
+                                                int idxOpen = indexOfSafe(pending, THINK_START);
+                                                int idxClose = indexOfSafe(pending, THINK_END);
+                                                int next = minNonNeg(idxOpen, idxClose);
 
-                                                    if (startsWithSafe(pending, "<think>")) {
-                                                        // 进入思考模式
-                                                        pending.delete(0, "<think>".length());
-                                                        inThink = true;
-                                                        postToUi(() -> thinkDisplay.append("[思考开始]\n"));
-                                                    } else if (startsWithSafe(pending, "</think>")) {
-                                                        // 结束思考模式
-                                                        pending.delete(0, "</think>".length());
-                                                        inThink = false;
-                                                        postToUi(() -> thinkDisplay.append("\n[思考结束]\n"));
+                                                if (next < 0) {
+                                                    // 没有找到任何标签，输出所有内容
+                                                    if (pending.length() > 0) {
+                                                        final String toAppend = pending.toString();
+                                                        postToUi(() -> appendAiChunk(toAppend));
+                                                        pending.setLength(0);
                                                     }
+                                                    break;
+                                                }
+
+                                                if (next > 0) {
+                                                    // 输出标签前的内容
+                                                    String out = pending.substring(0, next);
+                                                    if (!out.isEmpty()) {
+                                                        final String toAppend = out;
+                                                        postToUi(() -> appendAiChunk(toAppend));
+                                                    }
+                                                    pending.delete(0, next);
+                                                }
+
+                                                if (startsWithSafe(pending, THINK_START)) {
+                                                    // 进入思考模式
+                                                    pending.delete(0, THINK_START.length());
+                                                    inThink = true;
+                                                    postToUi(() -> thinkDisplay.append("[思考开始]\n"));
+                                                } else if (startsWithSafe(pending, THINK_END)) {
+                                                    // 结束思考模式
+                                                    pending.delete(0, THINK_END.length());
+                                                    inThink = false;
+                                                    postToUi(() -> thinkDisplay.append("\n[思考结束]\n"));
                                                 }
                                             }
                                         }
+
+                                        // 检查是否结束
                                         if (json.optBoolean("done", false)) {
                                             // 保存AI回复到后端
                                             if (pending.length() > 0) {

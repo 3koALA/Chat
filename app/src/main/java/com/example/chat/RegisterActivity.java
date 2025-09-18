@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.chat.beans.User;
 import com.example.chat.retrofitclient.BackendRetrofitClient;
-import com.example.chat.services.DatabaseApiService;
+import com.example.chat.services.UserApiService;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.Map;
@@ -29,7 +29,7 @@ public class RegisterActivity extends AppCompatActivity {
     private Button registerButton;
     private ProgressBar progressBar;
 
-    private DatabaseApiService databaseApiService;
+    private UserApiService userApiService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +40,7 @@ public class RegisterActivity extends AppCompatActivity {
         initViews();
 
         // 初始化数据库API服务
-        databaseApiService = BackendRetrofitClient.getClient().create(DatabaseApiService.class);
+        userApiService = BackendRetrofitClient.getClient().create(UserApiService.class);
 
         // 设置点击监听器
         setupClickListeners();
@@ -88,7 +88,7 @@ public class RegisterActivity extends AppCompatActivity {
         User user = new User(username, password,nickName);
 
         // 调用注册API
-        Call<Map<String, Object>> call = databaseApiService.register(user);
+        Call<Map<String, Object>> call = userApiService.register(user);
         call.enqueue(new Callback<Map<String, Object>>() {
             @Override
             public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {

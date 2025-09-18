@@ -1,6 +1,7 @@
 package com.example.chat.services;
 
 import com.example.chat.beans.ModelsResponse;
+import com.example.chat.beans.OllamaChatRequest;
 import com.example.chat.beans.OllamaRequest;
 import com.example.chat.beans.OllamaResponse;
 import com.example.chat.beans.ShowModelRequest;
@@ -16,8 +17,9 @@ public interface OllamaApiService {
     @GET("api/tags")
     Call<ModelsResponse> getModels();
 
-    @POST("api/generate")
-    Call<OllamaResponse> generateResponse(@Body OllamaRequest request);
+    @Streaming
+    @POST("api/chat")
+    Call<ResponseBody> generateChatResponseStream(@Body OllamaChatRequest request);
 
     @Streaming
     @POST("api/generate")

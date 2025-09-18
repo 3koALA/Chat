@@ -1,5 +1,6 @@
 package com.example.chat.beans;
 
+
 public class OllamaRequest {
     private String model;
     private String prompt;

@@ -1,5 +1,6 @@
 package com.example.chat.beans;
 
+import com.example.chat.beans.Message;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;

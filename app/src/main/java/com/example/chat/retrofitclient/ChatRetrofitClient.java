@@ -1,6 +1,7 @@
 package com.example.chat.retrofitclient;
 
 import com.example.chat.BaseUrl;
+import com.example.chat.ResponseValidator;
 
 import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
@@ -12,17 +13,16 @@ public class ChatRetrofitClient {
 
     public static Retrofit getClient() {
         if (retrofit == null) {
-            OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
-                    .connectTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(180, TimeUnit.SECONDS)
-                    .writeTimeout(180, TimeUnit.SECONDS)
-                    .callTimeout(180, TimeUnit.SECONDS)
-                    .retryOnConnectionFailure(true);
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .addInterceptor(new ResponseValidator())
+                    .connectTimeout(30, TimeUnit.SECONDS)  // 连接超时
+                    .readTimeout(120, TimeUnit.SECONDS)   // 读取超时
+                    .writeTimeout(30, TimeUnit.SECONDS)   // 写入超时
+                    .build();
 
-            // 删除日志拦截器以避免依赖和符号解析问题
-
-            retrofit = new Retrofit.Builder()
+            return new Retrofit.Builder()
                     .baseUrl(BaseUrl.CHAT)
+                    .client(client)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
         }
