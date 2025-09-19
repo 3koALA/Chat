@@ -364,6 +364,7 @@ public class ChatFragment extends Fragment {
 
                     // 清空聊天显示
                     chatDisplay.setText("");
+                    currentConversationMessages.clear();
 
                     // 添加到对话列表
                     conversations.add(0, response.body());
