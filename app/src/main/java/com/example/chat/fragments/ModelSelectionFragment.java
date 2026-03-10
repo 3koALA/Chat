@@ -1,332 +1,217 @@
 package com.example.chat.fragments;
 
-import android.app.AlertDialog;
-import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
-import android.widget.SeekBar;
-import android.widget.Spinner;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.chat.ModelManager;
 import com.example.chat.R;
-
-import com.example.chat.beans.ModelDetails;
-import org.json.JSONObject;
-
-import com.example.chat.retrofitclient.ChatRetrofitClient;
-import com.example.chat.beans.ModelInfo;
-import com.example.chat.beans.ModelsResponse;
-import com.example.chat.beans.ShowModelRequest;
-import com.example.chat.services.OllamaApiService;
-
-import okhttp3.ResponseBody;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import com.example.chat.retrofitclient.BackendRetrofitClient;
+import com.example.chat.beans.ModelDto;
+import com.example.chat.services.ModelApiService;
+import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class ModelSelectionFragment extends Fragment {
-    private OllamaApiService ollamaApiService;
+    private static final String TAG = "ModelSelectionFragment";
+    private ModelApiService modelApiService;
 
-    private Spinner modelSpinner;
-    private Button refreshButton;
-    private Button settingsButton;
-    private List<String> models = new ArrayList<>();
-
-    private SharedPreferences prefs;
-    private static final String PREFS_NAME = "ModelSettings";
-    private static final String KEY_SYSTEM_PROMPT = "system_prompt";
-    private static final String KEY_TEMPERATURE = "temperature";
-    private static final String KEY_TOP_P = "top_p";
-    private static final String KEY_MAX_TOKENS = "max_tokens";
-
-    private String currentSystemPrompt = "";
-    private float currentTemperature = 0.7f;
-    private float currentTopP = 0.9f;
-    private int currentMaxTokens = 128;
+    private RecyclerView rvModels;
+    private SwipeRefreshLayout swipe;
+    private EditText searchInput;
+    private TextView tvSelectedModel;
+    private List<ModelDto> models = new ArrayList<>();
+    private ModelAdapter adapter;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_model_selection, container, false);
 
-        ollamaApiService = ChatRetrofitClient.getClient().create(OllamaApiService.class);
+        modelApiService = BackendRetrofitClient.getClient().create(ModelApiService.class);
 
-        // 获取布局中的组件
-        modelSpinner = view.findViewById(R.id.model_spinner);
-        refreshButton = view.findViewById(R.id.refresh_button);
-        settingsButton = view.findViewById(R.id.settings_button);
+        rvModels = view.findViewById(R.id.rv_models);
+        swipe = view.findViewById(R.id.swipe);
+        searchInput = view.findViewById(R.id.search_input);
+        tvSelectedModel = view.findViewById(R.id.tv_selected_model);
 
-        // 初始化SharedPreferences
-        prefs = requireContext().getSharedPreferences(PREFS_NAME, requireContext().MODE_PRIVATE);
+        rvModels.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new ModelAdapter(models);
+        rvModels.setAdapter(adapter);
 
-        // 加载保存的设置
-        loadSavedSettings();
+        swipe.setOnRefreshListener(this::fetchModels);
 
-        refreshButton.setOnClickListener(v -> fetchModels());
-        settingsButton.setOnClickListener(v -> showSettingsDialog());
-        settingsButton.setEnabled(false); // 初始时禁用，直到加载模型
-
-        // 保存用户选择
-        modelSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+        searchInput.addTextChangedListener(new android.text.TextWatcher() {
             @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (position >= 0 && position < models.size()) {
-                    String modelName = models.get(position);
-                    ModelManager.setSelectedModel(modelName);
-                    // 获取模型详细信息
-                    fetchModelDetails(modelName);
-                }
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String q = s.toString().toLowerCase();
+                adapter.filter(q);
             }
 
             @Override
-            public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+            public void afterTextChanged(android.text.Editable s) {}
         });
 
-        // 初始加载模型
         fetchModels();
 
         return view;
     }
 
-    private void loadSavedSettings() {
-        currentSystemPrompt = prefs.getString(KEY_SYSTEM_PROMPT, "");
-        currentTemperature = prefs.getFloat(KEY_TEMPERATURE, 0.7f);
-        currentTopP = prefs.getFloat(KEY_TOP_P, 0.9f);
-        currentMaxTokens = prefs.getInt(KEY_MAX_TOKENS, 128);
-
-        // 更新ModelManager中的设置
-        ModelManager.setSystemPrompt(currentSystemPrompt);
-        ModelManager.setTemperature(currentTemperature);
-        ModelManager.setTopP(currentTopP);
-        ModelManager.setMaxTokens(currentMaxTokens);
-    }
-
-    private void saveSettings(String systemPrompt, float temperature, float topP, int maxTokens) {
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(KEY_SYSTEM_PROMPT, systemPrompt);
-        editor.putFloat(KEY_TEMPERATURE, temperature);
-        editor.putFloat(KEY_TOP_P, topP);
-        editor.putInt(KEY_MAX_TOKENS, maxTokens);
-        editor.apply();
-
-        // 更新当前设置和ModelManager
-        currentSystemPrompt = systemPrompt;
-        currentTemperature = temperature;
-        currentTopP = topP;
-        currentMaxTokens = maxTokens;
-
-        ModelManager.setSystemPrompt(systemPrompt);
-        ModelManager.setTemperature(temperature);
-        ModelManager.setTopP(topP);
-        ModelManager.setMaxTokens(maxTokens);
-
-        Toast.makeText(requireContext(), "设置已保存", Toast.LENGTH_SHORT).show();
-    }
-
-    private void resetSettings() {
-        // 重置为默认值
-        saveSettings("", 0.7f, 0.9f, 128);
-        Toast.makeText(requireContext(), "设置已重置", Toast.LENGTH_SHORT).show();
-    }
-
-    private void updateSettingsFromModelDefaults(ModelDetails modelDetails) {
-        if (modelDetails != null) {
-            // 使用从API获取的值更新设置
-            currentSystemPrompt = modelDetails.getSystemPrompt();
-            currentTemperature = modelDetails.getTemperature();
-            currentTopP = modelDetails.getTopP();
-            currentMaxTokens = modelDetails.getNumPredict();
-
-            // 保存到SharedPreferences
-            saveSettings(currentSystemPrompt, currentTemperature, currentTopP, currentMaxTokens);
-        }
-    }
-
-    private void showSettingsDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_model_settings, null);
-        builder.setView(dialogView);
-
-        EditText systemPromptEdit = dialogView.findViewById(R.id.system_prompt_edit);
-        SeekBar temperatureSeek = dialogView.findViewById(R.id.temperature_seek);
-        TextView temperatureValue = dialogView.findViewById(R.id.temperature_value);
-        SeekBar topPSeek = dialogView.findViewById(R.id.top_p_seek);
-        TextView topPValue = dialogView.findViewById(R.id.top_p_value);
-        EditText maxTokensEdit = dialogView.findViewById(R.id.max_tokens_edit);
-//        Button resetButton = dialogView.findViewById(R.id.reset_button);
-        Button useModelDefaultsButton = dialogView.findViewById(R.id.reset_button);
-
-        // 设置当前值
-        systemPromptEdit.setText(currentSystemPrompt);
-        temperatureSeek.setProgress((int)(currentTemperature * 100));
-        temperatureValue.setText(String.format("%.2f", currentTemperature));
-        topPSeek.setProgress((int)(currentTopP * 100));
-        topPValue.setText(String.format("%.2f", currentTopP));
-        maxTokensEdit.setText(String.valueOf(currentMaxTokens));
-
-        // 温度滑动条监听
-        temperatureSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float value = progress / 100f;
-                temperatureValue.setText(String.format("%.2f", value));
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-
-        // Top-P滑动条监听
-        topPSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float value = progress / 100f;
-                topPValue.setText(String.format("%.2f", value));
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-
-        // 重置按钮
-//        resetButton.setOnClickListener(v -> {
-//            systemPromptEdit.setText("");
-//            temperatureSeek.setProgress(70);
-//            temperatureValue.setText("0.70");
-//            topPSeek.setProgress(90);
-//            topPValue.setText("0.90");
-//            maxTokensEdit.setText("128");
-//        });
-
-        // 使用模型默认值按钮
-        useModelDefaultsButton.setOnClickListener(v -> {
-            ModelDetails modelDetails = ModelManager.getModelDetails();
-            if (modelDetails != null) {
-                systemPromptEdit.setText(modelDetails.getSystemPrompt());
-                temperatureSeek.setProgress((int)(modelDetails.getTemperature() * 100));
-                temperatureValue.setText(String.format("%.2f", modelDetails.getTemperature()));
-                topPSeek.setProgress((int)(modelDetails.getTopP() * 100));
-                topPValue.setText(String.format("%.2f", modelDetails.getTopP()));
-                maxTokensEdit.setText(String.valueOf(modelDetails.getNumPredict()));
-            } else {
-                Toast.makeText(requireContext(), "未获取到模型默认设置", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        builder.setPositiveButton("确认", (dialog, which) -> {
-            String systemPrompt = systemPromptEdit.getText().toString();
-            float temperature = temperatureSeek.getProgress() / 100f;
-            float topP = topPSeek.getProgress() / 100f;
-            int maxTokens;
-
-            try {
-                maxTokens = Integer.parseInt(maxTokensEdit.getText().toString());
-            } catch (NumberFormatException e) {
-                maxTokens = 128;
-            }
-
-            saveSettings(systemPrompt, temperature, topP, maxTokens);
-        });
-
-        builder.setNegativeButton("取消", null);
-
-        builder.setTitle("模型参数设置");
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
 
     private void fetchModels() {
-        Call<ModelsResponse> call = ollamaApiService.getModels();
-        call.enqueue(new Callback<ModelsResponse>() {
+        Log.d(TAG, "fetchModels: 开始获取用户可见模型列表");
+        Call<List<ModelDto>> call = modelApiService.listVisibleModels();
+        call.enqueue(new Callback<List<ModelDto>>() {
             @Override
-            public void onResponse(Call<ModelsResponse> call, Response<ModelsResponse> response) {
+            public void onResponse(Call<List<ModelDto>> call, Response<List<ModelDto>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    ModelsResponse modelsResponse = response.body();
                     models.clear();
+                    models.addAll(response.body());
+                    adapter.refresh();
 
-                    for (ModelInfo model : modelsResponse.getModels()) {
-                        models.add(model.getName());
+                    if (models.isEmpty()) {
+                        Toast.makeText(requireContext(), "暂无可用模型", Toast.LENGTH_SHORT).show();
+                        Log.w(TAG, "fetchModels: 用户可见模型列表为空");
                     }
-
-                    // 更新 UI
-                    ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                            requireContext(),
-                            android.R.layout.simple_spinner_item,
-                            models
-                    );
-                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                    modelSpinner.setAdapter(adapter);
-
                     if (!models.isEmpty()) {
-                        modelSpinner.setSelection(0);
-                        String firstModel = models.get(0);
-                        ModelManager.setSelectedModel(firstModel);
-                        fetchModelDetails(firstModel);
-                        settingsButton.setEnabled(true);
+                        // 只有在ModelManager中没有选中模型时，才设置默认模型
+                        if (ModelManager.getSelectedModelDto() == null) {
+                            String firstModel = models.get(0).getModelName();
+                            Long firstModelId = models.get(0).getId();
+                            ModelManager.setSelectedModel(firstModel);
+                            ModelManager.setSelectedModelDto(models.get(0));
+                            tvSelectedModel.setText("已选: " + firstModel);
+                            Log.d(TAG, "fetchModels: ModelManager为空，设置默认模型，modelID=" + firstModelId + ", 名称=" + firstModel);
+                        } else {
+                            // 显示当前已选中的模型
+                            String selectedModel = ModelManager.getSelectedModelOrDefault();
+                            tvSelectedModel.setText("已选: " + selectedModel);
+                            Log.d(TAG, "fetchModels: ModelManager已有模型，保持当前选择: " + selectedModel);
+                        }
                     }
 
                     Toast.makeText(requireContext(), "模型加载成功", Toast.LENGTH_SHORT).show();
                 } else {
+                    Log.e(TAG, "fetchModels: 获取模型失败，code=" + response.code());
                     Toast.makeText(requireContext(), "获取模型失败", Toast.LENGTH_SHORT).show();
                 }
+                swipe.setRefreshing(false);
             }
 
             @Override
-            public void onFailure(Call<ModelsResponse> call, Throwable t) {
+            public void onFailure(Call<List<ModelDto>> call, Throwable t) {
+                Log.e(TAG, "fetchModels: 网络错误: " + t.getMessage());
                 Toast.makeText(requireContext(), "网络错误: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                swipe.setRefreshing(false);
             }
         });
     }
 
-    // 修改 fetchModelDetails 方法
-    private void fetchModelDetails(String modelName) {
-        ShowModelRequest request = new ShowModelRequest(modelName);
-        Call<ResponseBody> call = ollamaApiService.getModelDetails(request);
+    private class ModelAdapter extends RecyclerView.Adapter<ModelAdapter.VH> {
+        private static final String TAG = "ModelAdapter";
+        private final List<ModelDto> items;
+        private final List<ModelDto> filtered = new ArrayList<>();
 
-        call.enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    try {
-                        String responseString = response.body().string();
-                        JSONObject jsonResponse = new JSONObject(responseString);
-                        ModelDetails modelDetails = ModelDetails.fromJson(jsonResponse);
+        ModelAdapter(List<ModelDto> items) { this.items = items; this.filtered.addAll(items); }
 
-                        ModelManager.setModelDetails(modelDetails);
-                        updateSettingsFromModelDefaults(modelDetails);
-                        Toast.makeText(requireContext(), "已加载 " + ModelManager.getSelectedModelOrDefault() + " 的默认设置", Toast.LENGTH_SHORT).show();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        Toast.makeText(requireContext(), "解析模型详情失败", Toast.LENGTH_SHORT).show();
+        void refresh() {
+            filtered.clear();
+            filtered.addAll(items);
+            notifyDataSetChanged();
+        }
+
+        class VH extends RecyclerView.ViewHolder {
+            TextView name, family, size;
+            ImageView avatar;
+            VH(View itemView) {
+                super(itemView);
+                name = itemView.findViewById(R.id.tv_model_name);
+                family = itemView.findViewById(R.id.tv_model_family);
+                size = itemView.findViewById(R.id.tv_model_size);
+                avatar = itemView.findViewById(R.id.iv_model_avatar);
+            }
+        }
+
+        @Override
+        public VH onCreateViewHolder(ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.model_item, parent, false);
+            return new VH(v);
+        }
+
+        @Override
+        public void onBindViewHolder(VH holder, int position) {
+            ModelDto info = filtered.get(position);
+            holder.name.setText(info.getModelName());
+            holder.family.setText(info.getModelFamily() != null ? info.getModelFamily() : "");
+            holder.size.setText(info.getParameterSize() != null ? info.getParameterSize() : String.valueOf(info.getModelSize()));
+
+            // 加载模型头像
+            String avatarUrl = info.getAvatarUrl();
+            if (avatarUrl != null && !avatarUrl.isEmpty()) {
+                String fullUrl = avatarUrl;
+                if (!avatarUrl.startsWith("http://") && !avatarUrl.startsWith("https://")) {
+                    fullUrl = "http://10.0.2.2:8080" + (avatarUrl.startsWith("/") ? avatarUrl : "/" + avatarUrl);
+                }
+                Glide.with(holder.itemView.getContext())
+                        .load(fullUrl)
+                        .placeholder(android.R.drawable.ic_menu_gallery)
+                        .error(android.R.drawable.ic_menu_gallery)
+                        .into(holder.avatar);
+            } else {
+                holder.avatar.setImageResource(android.R.drawable.ic_menu_gallery);
+            }
+
+            holder.itemView.setOnClickListener(v -> {
+                String sel = info.getModelName();
+                Long modelId = info.getId();
+                ModelManager.setSelectedModel(sel);
+                ModelManager.setSelectedModelDto(info);
+                tvSelectedModel.setText("已选: " + sel);
+                Log.d(TAG, "onBindViewHolder: 点击模型，modelId=" + modelId + ", modelName=" + sel);
+                if (getActivity() != null) {
+                    android.content.Intent it = new android.content.Intent(getActivity(), com.example.chat.activities.ModelDetailActivity.class);
+                    it.putExtra("model_name", sel);
+                    it.putExtra("modelId", modelId);
+                    getActivity().startActivity(it);
+                }
+            });
+        }
+
+        @Override
+        public int getItemCount() { return filtered.size(); }
+
+        void filter(String q) {
+            filtered.clear();
+            if (q == null || q.isEmpty()) {
+                filtered.addAll(items);
+            } else {
+                for (ModelDto m : items) {
+                    if (m.getModelName() != null && m.getModelName().toLowerCase().contains(q)) {
+                        filtered.add(m);
                     }
-                } else {
-                    Toast.makeText(requireContext(), "获取模型详情失败", Toast.LENGTH_SHORT).show();
                 }
             }
-
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                Toast.makeText(requireContext(), "网络错误: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
+            notifyDataSetChanged();
+        }
     }
-
 }

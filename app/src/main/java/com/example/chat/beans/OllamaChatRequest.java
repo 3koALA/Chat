@@ -5,6 +5,7 @@ import java.util.List;
 public class OllamaChatRequest {
     private String model;
     private List<OllamaMessage> messages;
+    private String system;
     private boolean stream;
     private Options options;
 
@@ -43,38 +44,75 @@ public class OllamaChatRequest {
     }
 
     public static class Options {
-        private float temperature;
-        private float top_p;
-        private int max_tokens;
+        private Float temperature;
+        private Float top_p;
+        private Integer top_k;
+        private Integer num_ctx;
+        private Integer num_predict;
+        private Integer max_tokens;
 
-        public Options(float temperature,float top_p ,int max_tokens) {
+        public Options() {}
+
+        public Options(Float temperature, Float top_p, Integer max_tokens) {
             this.temperature = temperature;
-            this.max_tokens = max_tokens;
             this.top_p = top_p;
+            this.max_tokens = max_tokens;
         }
 
-        public float getTop_p() {
+        public Float getTop_p() {
             return top_p;
         }
 
-        public void setTop_p(float top_p) {
+        public void setTop_p(Float top_p) {
             this.top_p = top_p;
         }
 
-        public float getTemperature() {
+        public Float getTemperature() {
             return temperature;
         }
 
-        public void setTemperature(float temperature) {
+        public void setTemperature(Float temperature) {
             this.temperature = temperature;
         }
 
-        public int getMax_tokens() {
+        public Integer getMax_tokens() {
             return max_tokens;
         }
 
-        public void setMax_tokens(int max_tokens) {
+        public void setMax_tokens(Integer max_tokens) {
             this.max_tokens = max_tokens;
         }
+
+        public Integer getTop_k() {
+            return top_k;
+        }
+
+        public void setTop_k(Integer top_k) {
+            this.top_k = top_k;
+        }
+
+        public Integer getNum_ctx() {
+            return num_ctx;
+        }
+
+        public void setNum_ctx(Integer num_ctx) {
+            this.num_ctx = num_ctx;
+        }
+
+        public Integer getNum_predict() {
+            return num_predict;
+        }
+
+        public void setNum_predict(Integer num_predict) {
+            this.num_predict = num_predict;
+        }
+    }
+
+    public String getSystem() {
+        return system;
+    }
+
+    public void setSystem(String system) {
+        this.system = system;
     }
 }

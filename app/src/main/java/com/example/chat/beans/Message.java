@@ -1,7 +1,5 @@
 package com.example.chat.beans;
 
-import java.time.LocalDateTime;
-
 public class Message {
     private Long id;
     private Long conversationId;

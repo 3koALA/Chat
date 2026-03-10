@@ -5,7 +5,10 @@ public class User {
     private String username;
     private String password;
     private String nickname;
+    private String avatarUrl;
 
+
+    private String role;
     // 构造函数
     public User() {}
 
@@ -18,6 +21,7 @@ public class User {
         this.username = username;
         this.password = password;
         this.nickname = nickname;
+        this.role = role;
     }
 
     // Getter 和 Setter 方法
@@ -52,4 +56,21 @@ public class User {
     public void setNickname(String nickname) {
         this.nickname = nickname;
     }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
 }

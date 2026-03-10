@@ -1,8 +1,6 @@
 package com.example.chat.beans;
 
 import com.example.chat.beans.Message;
-import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
 
 public class Conversation {
@@ -14,7 +12,6 @@ public class Conversation {
     private String createdAt;
     private String updatedAt;
 
-    // 构造函数、getter和setter
     public Conversation() {}
 
     public Conversation(Long userId, String title) {
@@ -76,23 +73,5 @@ public class Conversation {
 
     public void setUpdatedAt(String updatedAt) {
         this.updatedAt = updatedAt;
-    }
-
-    // 添加一个获取Date对象的方法
-    public Date getCreatedAtAsDate() {
-        try {
-            // 假设日期格式为ISO格式：2025-09-17T11:06:18
-            if (createdAt != null && !createdAt.isEmpty()) {
-                // 如果包含时区信息，可能需要更复杂的解析
-                if (createdAt.contains("T")) {
-                    return new Date(java.sql.Timestamp.valueOf(createdAt.replace("T", " ")).getTime());
-                } else {
-                    return new Date(Long.parseLong(createdAt));
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 }

@@ -1,10 +1,12 @@
 package com.example.chat;
 
 import com.example.chat.beans.ModelDetails;
+import com.example.chat.beans.ModelDto;
 
 public final class ModelManager {
 
     private static volatile String selectedModel;
+    private static volatile ModelDto selectedModelDto;
     private static ModelDetails currentModelDetails;
 
     // 默认值作为后备
@@ -20,8 +22,21 @@ public final class ModelManager {
         selectedModel = modelName.trim();
     }
 
+    public static void setSelectedModelDto(ModelDto dto) {
+        selectedModelDto = dto;
+        if (dto != null) selectedModel = dto.getModelName();
+    }
+
+    public static ModelDto getSelectedModelDto() {
+        return selectedModelDto;
+    }
+    private static long selectedConfigId = -1;
+
+    public static void setSelectedConfigId(long id) { selectedConfigId = id; }
+    public static long getSelectedConfigId() { return selectedConfigId; }
+
     public static String getSelectedModelOrDefault() {
-        return selectedModel != null && !selectedModel.isEmpty() ? selectedModel : "llama2";
+        return selectedModel != null && !selectedModel.isEmpty() ? selectedModel : "未选择模型";
     }
 
     public static void setModelDetails(ModelDetails details) {

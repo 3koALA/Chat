@@ -121,6 +121,64 @@ public class ModelDetails {
                 ((Number) parsedParameters.get("top_p")).floatValue() : 0.9f;
     }
 
+    // 新增：获取 Top-K 参数
+    public Integer getTopK() {
+        // 尝试从 parsedParameters 获取 top_k
+        if (parsedParameters.containsKey("top_k")) {
+            return ((Number) parsedParameters.get("top_k")).intValue();
+        }
+        // 如果没有，尝试从 modelfile 中解析
+        if (modelfile != null && modelfile.contains("top_k")) {
+            try {
+                String[] lines = modelfile.split("\n");
+                for (String line : lines) {
+                    if (line.contains("top_k")) {
+                        String[] parts = line.split("\\s+");
+                        for (int i = 0; i < parts.length; i++) {
+                            if (parts[i].equals("top_k") && i + 1 < parts.length) {
+                                return Integer.parseInt(parts[i + 1]);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return 40; // 默认值
+    }
+
+    // 新增：获取 Num Ctx 参数
+    public Integer getNumCtx() {
+        // 尝试从 parsedParameters 获取 num_ctx
+        if (parsedParameters.containsKey("num_ctx")) {
+            return ((Number) parsedParameters.get("num_ctx")).intValue();
+        }
+        // 尝试从 parsedParameters 获取 num_predict（作为备选）
+        if (parsedParameters.containsKey("num_predict")) {
+            return ((Number) parsedParameters.get("num_predict")).intValue() * 2; // 简单估算
+        }
+        // 尝试从 modelfile 中解析
+        if (modelfile != null && modelfile.contains("num_ctx")) {
+            try {
+                String[] lines = modelfile.split("\n");
+                for (String line : lines) {
+                    if (line.contains("num_ctx")) {
+                        String[] parts = line.split("\\s+");
+                        for (int i = 0; i < parts.length; i++) {
+                            if (parts[i].equals("num_ctx") && i + 1 < parts.length) {
+                                return Integer.parseInt(parts[i + 1]);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return 2048; // 默认上下文窗口大小
+    }
+
     public int getNumPredict() {
         return parsedParameters.containsKey("num_predict") ?
                 ((Number) parsedParameters.get("num_predict")).intValue() : 128;
@@ -136,5 +194,32 @@ public class ModelDetails {
             }
         }
         return "";
+    }
+
+    // 从 modelfile 中提取 PARAMETER 块文本（若存在）
+    public String getModelFileParameters() {
+        if (modelfile != null && modelfile.contains("PARAMETER")) {
+            int start = modelfile.indexOf("PARAMETER") + "PARAMETER".length();
+            int end = modelfile.indexOf("\"\"\"", start);
+            if (end > start) {
+                return modelfile.substring(start, end).trim();
+            } else {
+                // 如果没有三引号结尾，则返回到字符串末尾
+                return modelfile.substring(start).trim();
+            }
+        }
+        return null;
+    }
+
+    // 新增：获取所有参数的综合方法（方便调试）
+    public Map<String, Object> getAllParameters() {
+        Map<String, Object> allParams = new HashMap<>();
+        allParams.put("temperature", getTemperature());
+        allParams.put("top_p", getTopP());
+        allParams.put("top_k", getTopK());
+        allParams.put("num_ctx", getNumCtx());
+        allParams.put("num_predict", getNumPredict());
+        allParams.put("system_prompt", getSystemPrompt());
+        return allParams;
     }
 }

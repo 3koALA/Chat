@@ -15,53 +15,76 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:orientation="vertical"
             android:paddingBottom="8dp">
 
-            <ImageButton
-                android:id="@+id/history_button"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_history"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="对话历史" />
-
-            <TextView
-                android:id="@+id/conversation_title"
-                android:layout_width="0dp"
+            <!-- 第一行：历史按钮、标题、新建按钮 -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="新对话"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:paddingHorizontal="8dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <ImageButton
-                android:id="@+id/new_chat_button"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_add"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="新建对话" />
+                <ImageButton
+                    android:id="@+id/history_button"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_history"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="对话历史" />
+
+                <TextView
+                    android:id="@+id/conversation_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="start|center_vertical"
+                    android:paddingHorizontal="8dp"
+                    android:text="新对话"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/new_chat_button"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_add"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="新建对话" />
+            </LinearLayout>
+
+            <!-- 第二行：模型名（靠右显示） -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="end"
+                android:paddingEnd="8dp">
+
+                <TextView
+                    android:id="@+id/tv_chat_model"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="模型: -"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
         </LinearLayout>
 
         <!-- 分隔线 -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#EEEEEE"
             android:layout_marginVertical="8dp" />
 
         <!-- 思考区域 -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="180dp"
+            android:background="#F5F5F5"
             android:orientation="vertical"
-            android:background="@android:color/transparent"
             android:padding="8dp"
-            android:visibility="visible">
+            android:id="@+id/think_container">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -74,8 +97,8 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="思考过程"
-                    android:textStyle="bold"
-                    android:textSize="14sp" />
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
 
                 <Button
                     android:id="@+id/toggle_think_button"
@@ -87,68 +110,88 @@
             <ScrollView
                 android:id="@+id/think_scroll_view"
                 android:layout_width="match_parent"
-                android:layout_height="150dp"
-                android:background="@android:color/transparent">
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@android:color/white">
 
                 <TextView
                     android:id="@+id/think_display"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="#888888"
-                    android:textSize="12sp"
                     android:fontFamily="monospace"
-                    android:lineSpacingExtra="2dp" />
+                    android:lineSpacingExtra="2dp"
+                    android:textSize="12sp"
+                    android:padding="8dp" />
 
             </ScrollView>
         </LinearLayout>
 
-        <!-- 分隔线 -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#EEEEEE"
-            android:layout_marginVertical="8dp" />
-
         <!-- 聊天区域 -->
-        <ScrollView
-            android:id="@+id/scroll_view"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_chat_messages"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1">
-
-            <TextView
-                android:id="@+id/chat_display"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:lineSpacingExtra="4dp" />
-
-        </ScrollView>
+            android:layout_weight="1"
+            android:padding="8dp"
+            android:clipToPadding="false" />
 
         <!-- 输入区域 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:layout_marginTop="8dp">
 
-            <EditText
-                android:id="@+id/message_input"
-                android:layout_width="0dp"
+            <!-- 配置选择区域 -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="输入消息..."
-                android:imeOptions="actionSend"
-                android:inputType="text"
-                android:maxLines="3"
-                android:minHeight="48dp" />
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
 
-            <Button
-                android:id="@+id/send_button"
-                android:layout_width="wrap_content"
+                <Button
+                    android:id="@+id/btn_choose_config"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="选择配置"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_selected_config"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="默认配置"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="8dp" />
+
+            </LinearLayout>
+
+            <!-- 消息输入区域 -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="发送"
-                android:layout_marginStart="8dp" />
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/message_input"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="输入消息..."
+                    android:imeOptions="actionSend"
+                    android:inputType="text"
+                    android:maxLines="3"
+                    android:minHeight="48dp" />
+
+                <Button
+                    android:id="@+id/send_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="发送"
+                    android:layout_marginStart="8dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 

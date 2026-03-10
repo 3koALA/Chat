@@ -28,13 +28,11 @@
             android:layout_height="wrap_content"
             android:text="2023-11-15 10:30"
             android:textSize="12sp"
-            android:textColor="#888888"
             android:layout_marginTop="4dp" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#EEEEEE"
             android:layout_marginTop="8dp" />
     </LinearLayout>
 
